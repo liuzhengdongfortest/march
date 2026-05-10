@@ -51,7 +51,7 @@ Fork：`liuzhengdongfortest/march`
 
 | ID | 条目 | 状态 |
 |---|---|---|
-| 2.1 | 上下文重建引擎——分析 OpenCode Session/Compaction/Processor 层，设计注入点 | planned |
+| 2.1 | 上下文重建引擎——分析 OpenCode Session/Compaction/Processor 层，设计注入点 | done |
 | 2.2 | 上下文重建引擎——实现 open files tracking + content diffing | planned |
 | 2.3 | 上下文重建引擎——替换/增强 Compaction，接入 context pressure monitoring | planned |
 | 2.4 | PTY 终端——分析 OpenCode shell 模块和 `#pty` 条件导入 | planned |
