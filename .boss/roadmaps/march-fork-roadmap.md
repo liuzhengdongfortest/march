@@ -38,8 +38,8 @@ Fork：`liuzhengdongfortest/march`
 | ID | 条目 | 状态 |
 |---|---|---|
 | 1.1 | Fork + clone + upstream remote 配置 | done |
-| 1.2 | `bun install` 依赖安装 | in_progress |
-| 1.3 | `bun run build` 构建通过 | planned |
+| 1.2 | `bun install` 依赖安装 | done |
+| 1.3 | `bun run build` 构建通过 | done |
 | 1.4 | `bun test` 测试套件通过 | planned |
 | 1.5 | 品牌改名：opencode → march（CLI 入口、package name、TUI 标题） | planned |
 | 1.6 | `.boss/` 迁移 + CONVENTIONS 更新 | done |
