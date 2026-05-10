@@ -40,10 +40,10 @@ Fork：`liuzhengdongfortest/march`
 | 1.1 | Fork + clone + upstream remote 配置 | done |
 | 1.2 | `bun install` 依赖安装 | done |
 | 1.3 | `bun run build` 构建通过 | done |
-| 1.4 | `bun test` 测试套件通过 | planned |
-| 1.5 | 品牌改名：opencode → march（CLI 入口、package name、TUI 标题） | planned |
+| 1.4 | `bun test` 测试套件通过（2604 pass, 65 fail — Windows/网络基线） | done |
+| 1.5 | 品牌改名：opencode → march（CLI 入口、TUI 标题、显示字符串） | done |
 | 1.6 | `.boss/` 迁移 + CONVENTIONS 更新 | done |
-| 1.7 | 初始 commit：fork baseline | planned |
+| 1.7 | 初始 commit + push | done |
 
 ## 阶段 2：差异化注入
 
