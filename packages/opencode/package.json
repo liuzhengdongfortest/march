@@ -17,7 +17,7 @@
     "db": "bun drizzle-kit"
   },
   "bin": {
-    "opencode": "./bin/opencode"
+    "march": "./bin/march"
   },
   "exports": {
     "./*": "./src/*.ts"
