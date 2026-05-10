@@ -94,8 +94,6 @@ const money = new Intl.NumberFormat("en-US", {
   currency: "USD",
 })
 
-const DRAFT_RETENTION_MIN_CHARS = 20
-
 function randomIndex(count: number) {
   if (count <= 0) return 0
   return Math.floor(Math.random() * count)
@@ -1360,7 +1358,7 @@ export function Prompt(props: PromptProps) {
   }
 
   function clearPrompt() {
-    if (store.prompt.input.trim().length >= DRAFT_RETENTION_MIN_CHARS || store.prompt.parts.length > 0) {
+    if (kv.get("clear_prompt_save_history", false) && (store.prompt.input.trim() || store.prompt.parts.length > 0)) {
       history.append({
         ...store.prompt,
         mode: store.mode,
