@@ -11,7 +11,7 @@ import { app, BrowserWindow } from "electron"
 
 import contextMenu from "electron-context-menu"
 
-import type { InitStep, ServerReadyData, SqliteMigrationProgress, WslConfig } from "../preload/types"
+import type { InitStep, ServerReadyData, SqliteMigrationProgress } from "../preload/types"
 import { checkAppExists, resolveAppPath, wslPath } from "./apps"
 import { CHANNEL, UPDATER_ENABLED } from "./constants"
 import { registerIpcHandlers, sendDeepLinks, sendMenuCommand, sendSqliteMigrationProgress } from "./ipc"
@@ -20,13 +20,13 @@ import { parseMarkdown } from "./markdown"
 import { createMenu } from "./menu"
 import {
   getDefaultServerUrl,
-  getWslConfig,
   preferAppEnv,
   setDefaultServerUrl,
-  setWslConfig,
   spawnLocalServer,
+  spawnWslSidecar,
   type SidecarListener,
 } from "./server"
+import { createWslServersController } from "./wsl-servers"
 import {
   createLoadingWindow,
   createMainWindow,
@@ -53,6 +53,7 @@ const TEST_ONBOARDING = process.env.OPENCODE_TEST_ONBOARDING === "1"
 let logger: ReturnType<typeof initLogging>
 let mainWindow: BrowserWindow | null = null
 let server: SidecarListener | null = null
+let wslServers: ReturnType<typeof createWslServersController> | null = null
 
 const initEmitter = new EventEmitter()
 let initStep: InitStep = { phase: "server_waiting" }
@@ -85,6 +86,13 @@ async function killSidecar() {
   const current = server
   server = null
   await current.stop()
+}
+
+function relaunchApp() {
+  void killSidecar()
+  wslServers?.stopAll()
+  app.relaunch()
+  app.exit(0)
 }
 
 function ensureLoopbackNoProxy() {
@@ -154,6 +162,21 @@ const main = Effect.gen(function* () {
     onboardingTest: Boolean(onboardingTestRoot),
   })
 
+  const controller = createWslServersController(
+    app.getVersion(),
+    async (distro) => {
+      logger.log("spawning wsl sidecar", { distro })
+      return spawnWslSidecar(distro, {
+        onLine: (line) => logger.log("wsl sidecar", { distro, stream: line.stream, text: line.text }),
+      })
+    },
+    {
+      log: (message, meta) => logger.log(message, meta),
+      error: (message, meta) => logger.error(message, meta),
+    },
+  )
+  wslServers = controller
+
   ensureLoopbackNoProxy()
   useEnvProxy()
   app.commandLine.appendSwitch("proxy-bypass-list", "<-loopback>")
@@ -186,14 +209,17 @@ const main = Effect.gen(function* () {
 
   app.on("before-quit", () => {
     void killSidecar()
+    controller.stopAll()
   })
 
   app.on("will-quit", () => {
     void killSidecar()
+    controller.stopAll()
   })
 
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     process.on(signal, () => {
+      controller.stopAll()
       void killSidecar().finally(() => app.exit(0))
     })
   }
@@ -203,6 +229,7 @@ const main = Effect.gen(function* () {
 
   registerIpcHandlers({
     killSidecar: () => killSidecar(),
+    relaunch: () => relaunchApp(),
     awaitInitialization: Effect.fnUntraced(
       function* (sendStep) {
         sendStep(initStep)
@@ -223,13 +250,24 @@ const main = Effect.gen(function* () {
     consumeInitialDeepLinks: () => pendingDeepLinks.splice(0),
     getDefaultServerUrl: () => getDefaultServerUrl(),
     setDefaultServerUrl: (url) => setDefaultServerUrl(url),
-    getWslConfig: () => Promise.resolve(getWslConfig()),
-    setWslConfig: (config: WslConfig) => setWslConfig(config),
+    getWslServersState: () => controller.getState(),
+    onWslServersEvent: (listener) => controller.subscribe(listener),
+    wslServersProbeRuntime: () => controller.probeRuntime(),
+    wslServersRefreshDistros: () => controller.refreshDistros(),
+    wslServersInstallWsl: () => controller.installWsl(),
+    wslServersInstallDistro: (name) => controller.installDistro(name),
+    wslServersProbeDistro: (name) => controller.probeDistro(name),
+    wslServersProbeOpencode: (name) => controller.probeOpencode(name),
+    wslServersInstallOpencode: (name) => controller.installOpencode(name),
+    wslServersOpenTerminal: (name) => controller.openTerminal(name),
+    wslServersAddServer: (distro) => controller.addServer(distro),
+    wslServersRemoveServer: (id) => controller.removeServer(id),
+    wslServersStartServer: (id) => controller.startServer(id),
     getDisplayBackend: async () => null,
     setDisplayBackend: async () => undefined,
     parseMarkdown: async (markdown) => parseMarkdown(markdown),
     checkAppExists: (appName) => checkAppExists(appName),
-    wslPath: async (path, mode) => wslPath(path, mode),
+    wslPath: async (path, mode, distro) => wslPath(path, mode, distro),
     resolveAppPath: async (appName) => resolveAppPath(appName),
     loadingWindowComplete: () => Deferred.doneUnsafe(loadingComplete, Effect.void),
     runUpdater: async (alertOnFail) => checkForUpdates(alertOnFail, killSidecar),
@@ -318,6 +356,8 @@ const main = Effect.gen(function* () {
       password,
     })
 
+    void controller.initialize().catch((error) => logger.error("wsl server initialization failed", error))
+
     yield* Effect.promise(() => health.wait).pipe(
       Effect.timeout("30 seconds"),
       Effect.catch((e) =>
@@ -357,10 +397,7 @@ const main = Effect.gen(function* () {
       },
       reload: () => mainWindow?.reload(),
       relaunch: () => {
-        void killSidecar().finally(() => {
-          app.relaunch()
-          app.exit(0)
-        })
+        relaunchApp()
       },
     })
   }
